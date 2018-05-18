@@ -173,6 +173,7 @@ module Decoder ( input [1:0] codigo,
     end else if ( codigo == `destino) begin
       enableRAM <= 1'b0;
       sel <= 1'b1;
+      alu_Control<= instruction [11:8];
     end
   end
 
