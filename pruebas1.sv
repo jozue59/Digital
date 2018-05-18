@@ -1,17 +1,38 @@
 module Counter(
     input clk, reset,
-  output [12:0] out
+  output [12:0] out,
+  input [10:0] salto,
+  input enablestak,
+  input branch,
+  input flag
 );
+
   reg [12:0]out;
+  reg [12:0] out2;
+  reg [1:0] complemento;
+  assign complemento = 2'b0;
+
   	always @ (posedge clk)
+
       if(reset) begin
       	out <= 0;
+
       end else begin
-        out <= out + 1;
+        if (branch == 1'b1)begin
+          out<= {{complemento[1:0]},{salto[10:0]}};
+        end else if (flag == 1'b1 )begin
+          out<= out +2;
+        end else begin
+            out <= out + 1;
+        end
+
   	  end
+
 initial begin
     out <= 1'b0;
+
 end
+
 endmodule
 
 
@@ -20,17 +41,21 @@ module Inst_Memory(
   input[12:0]address,
   output[13:0] out
 );
+
   reg [13:0] out;
   reg [13:0] memory [0:8194];
 
   always @ (posedge clk)
+
     if (enable) begin
       out <= memory[address];
     end
 
 initial begin
  $readmemh("memory.list", memory);
+
 end
+
 endmodule
 
 module register(
@@ -38,16 +63,20 @@ module register(
     input [7:0] in,
     output [7:0] out
 );
+
     reg [7:0] out;
+
     always @ (posedge clk)
+
       if(enable) begin
         out <= in;
+
       end
 
 endmodule
 
 module generalReg (
-    input clk, enable,
+    input clk, input enable,
   	input [6:0] address,
     input [7:0] in,
     output [7:0] out
@@ -69,32 +98,41 @@ module generalReg (
       for (i = 0; i < 128; i= i + 1)
         memory[i] = i;
     end
+
 endmodule
+
 `define registros 2'b00
 `define literales 2'b11
+
 module ALU(
   input clk,
   input [3:0] control,
   input [7:0] A,B,
   output [7:0] out,
-  input [1:0] codigo
+  input [1:0] codigo,
+  output zero
 );
+
   reg [7:0] out;
+  reg zero;
+
   wire [7:0] result1;
   wire [7:0] result2;
-  wire [7:0] result;
   wire RLF;
   wire RRF;
+
   assign RLF = B[7];
   assign result1 = B<<1;
   assign result1[0]=RLF;
   assign RRF = B[0];
   assign result2 = B>>1;
   assign result2[7] = RRF;
-  assign result = {{B[3:0]},{B[7:4]}};
+  assign zero = (out==0);
 
   always @ (posedge clk)begin
+
     if (codigo ==`registros)begin
+
       case (control)
         0:out <= A;
         1:out <= 0;
@@ -110,11 +148,13 @@ module ALU(
         11:out <= B - 1;//salto DECFSZ
         12:out <= result1;//B<<;
         13:out <= result2;//B>>;
-        14:out <= result; //swap
+        14:out <= {{B[3:0]},{B[7:4]}}; //swap
         15:out <= B+1; // INCFSZ
+
       endcase
 
     end else if (codigo == `literales)begin
+
       casex (control)
         4'b111x: out <= A + B;
         4'b1001: out <= A & B;
@@ -123,11 +163,14 @@ module ALU(
         4'b01xx: out <= B; //RETLW
         4'b110x: out <= B - A;
         4'b1010: out <= A ^ B;
+
       endcase
 
+    end else if (codigo == 2'b10)begin
+      out <= A;
     end
-  end
 
+  end
 
 endmodule
 
@@ -138,53 +181,101 @@ input rst;
 output reg out_clk;
 
 always @(posedge clk) begin
+
   if (rst)
        out_clk <= 1'b0;
+
   else
        out_clk <= ~out_clk;
+
 end
 
 initial begin
     out_clk <= 1'b0;
+
 end
 
 endmodule
 
 `define codigo 2'b00
 `define destino 2'b11
+`define jump 2'b10
+
 module Decoder ( input [1:0] codigo,
   input [13:0] instruction,
   output [3:0] alu_Control,
   output enable_REG,
   output enable_W,
   output enableRAM,
-  output sel
+  output sel,
+  output [10:0] salto,
+  output enablestak,
+  output branch
 );
+
   reg [3:0] alu_Control;
+  reg [10:0] salto;
+  reg enablestak;
   reg enable_REG;
   reg enableRAM;
   reg sel;
+  reg branch;
+
   always @ (instruction) begin
+
     if (codigo == `codigo)begin
       alu_Control <= instruction [11:8];
       enable_REG <= instruction[7];
       enableRAM <= 1'b1;
       sel <= 1'b0;
+      branch <= 1'b0;
+
     end else if ( codigo == `destino) begin
       enableRAM <= 1'b0;
       sel <= 1'b1;
-      alu_Control<= instruction [11:8];
+      alu_Control <= instruction [11:8];
+      enable_REG <=1'b0;
+      branch <= 1'b0;
+
+    end else if (codigo == `jump) begin
+      enableRAM<=1'b0;
+      salto <=instruction [10:0];
+      enablestak <= instruction [11];
+      enable_REG<=1'b0;
+      branch <= 1'b1;
+
     end
+
   end
 
 endmodule
 
 module MUX (input sel, input [7:0] A, input [7:0] B, output [7:0] C);
+
   reg [7:0] C;
+
   always @ (A or B)begin
+
     case (sel)
       0: C <= A;
       1: C <= B;
+
     endcase
+
   end
+
 endmodule
+
+module MUX2 (input zero, input [1:0] codigo, input [3:0]alu_Control, output flag);
+  reg flag;
+  always @ (zero)begin
+    if (codigo == 2'b00 & zero == 1'b1)begin
+      if (alu_Control == 4'b1111 | alu_Control == 4'b1011)begin
+        flag <= 1'b1;
+      end
+    end else begin
+      flag <= 1'b0;
+    end
+  end
+
+endmodule // MUX2

@@ -8,25 +8,29 @@ module test;
   wire [7:0] bus;
   wire [7:0] alu_B;
   wire [6:0] addr_REG;
-  wire enable_REG, enable_W, vdd, sel;
+  wire [10:0] salto;
+  wire enable_REG, enable_W, enablestak, enableRAM;
+  wire vdd, sel, branch, zero, flag;
   wire clk_n, clk2, clk2_n, clk3;
   wire [1:0] codigo;
-  wire instFetch, dataFetch, aluResults, saveFiles, controlReg, enableRAM;
+  wire instFetch, dataFetch, aluResults, saveFiles, controlReg;
   wire [7:0] literal;
   wire [7:0] alu_C;
 
+
   assign vdd = 1;
-  assign addr_REG = instruction[7:0];
+  assign addr_REG = instruction[6:0];
   assign codigo = instruction[13:12];
   assign literal = instruction [7:0];
 
-  Counter 		  PC 			      (clk2_n,	reset,	count_PC);
+  Counter 		  PC 			      (clk2_n,	reset,	count_PC, salto, enablestak, branch, flag);
   Inst_Memory 	Instruction	  (instFetch, vdd, count_PC, instruction );
-  Decoder	      Master        (codigo, instruction, alu_Control, enable_REG, enable_W, enableRAM, sel);
-  ALU 			    ALU1 		      (aluResults, alu_Control, alu_A, alu_C, bus,codigo);
+  Decoder	      Master        (codigo, instruction, alu_Control, enable_REG, enable_W, enableRAM, sel, salto, enablestak, branch);
+  ALU 			    ALU1 		      (aluResults, alu_Control, alu_A, alu_C, bus,codigo, zero);
   register 		  W_REG 		    (saveFiles, enable_W, bus, alu_A);
   generalReg 	  F_REG	 	      (saveFiles, enable_REG, addr_REG, bus, alu_B);
   MUX           MUX1          (sel, alu_B, literal, alu_C);
+  MUX2          MUX2          (zero, codigo, alu_Control, flag);
 
   not			not1		(enable_W, enable_REG); // 0 = W, 1 = F
 
@@ -54,11 +58,11 @@ initial begin
 end
 
 initial
-  #500 $finish;
+  #300 $finish;
 
 initial begin
-  $display ("PC \tInst \tW ");
-  $monitor("%d \t%h\t%d", count_PC, instruction,alu_A);
+  $display ("PC \tInst \tW \tW");
+  $monitor("%d \t%h\t%d \t%d", count_PC, instruction,alu_A,alu_B);
 end
 
   always

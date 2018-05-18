@@ -1,26 +1,12 @@
-0
 0100   	// CLRW   		W = 0
-0
-0A80   	// INCF F 0  	F[0] = 1
-0
+0A83   	// INCF F 0  	F[0] = 1
 0A00		// INCF W 0		W = 2
 0A80   	// INCF F 0		F[0] = 2
 0A80   	// INCF F 0		F[0] = 3
 0A80   	// INCF F 0		F[0] = 4
-0
-0081		// MOVWF		F[1] = W = 2
+0083		// MOVWF		F[1] = W = 2
 0800		// MOVF			W = F[0] = 4
-0801		// MOVF			W = F[1] = 2
-0
+0803		// MOVF			W = F[1] = 2
 0780		// ADDWF		F[0] = W + F[0] = 2 + 4 = 6
 0700		// ADDWF		W = W + F[0] = 2 + 6 = 8
-3099
-3909
-0905
-3909
-0100
-3A55
-3F08
-@55        // Jump to new address 8'h55
-055   // This is address 8'h55
-056   // This is address 8'h56
+0000
