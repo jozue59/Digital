@@ -1,5 +1,5 @@
 0100   	// CLRW   		W = 0
-0A83   	// INCF F 0  	F[0] = 1
+0B81   	// INCF F 0  	F[0] = 1
 0A00		// INCF W 0		W = 2
 0A80   	// INCF F 0		F[0] = 2
 0A80   	// INCF F 0		F[0] = 3

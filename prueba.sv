@@ -61,8 +61,8 @@ initial
   #300 $finish;
 
 initial begin
-  $display ("PC \tInst \tW \tW");
-  $monitor("%d \t%h\t%d \t%d", count_PC, instruction,alu_A,alu_B);
+  $display ("PC \tInst \tW \tW  \tW ");
+  $monitor("%d \t%h \t%d \t%d \t%d ", count_PC, instruction,alu_A,alu_B, flag);
 end
 
   always

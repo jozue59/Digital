@@ -268,7 +268,7 @@ endmodule
 
 module MUX2 (input zero, input [1:0] codigo, input [3:0]alu_Control, output flag);
   reg flag;
-  always @ (zero)begin
+  always @ (alu_Control)begin
     if (codigo == 2'b00 & zero == 1'b1)begin
       if (alu_Control == 4'b1111 | alu_Control == 4'b1011)begin
         flag <= 1'b1;
@@ -279,3 +279,45 @@ module MUX2 (input zero, input [1:0] codigo, input [3:0]alu_Control, output flag
   end
 
 endmodule // MUX2
+
+module Stack (
+	clk,
+	reset,
+	q,
+	d,
+	push,
+	pop,
+);
+
+	parameter WIDTH = 13;
+	parameter DEPTH = 8;
+
+	input                    clk;
+	input                    reset;
+	input      [WIDTH - 1:0] d;
+	output reg [WIDTH - 1:0] q;
+	input                    push;
+	input                    pop;
+
+	reg [DEPTH - 1:0] ptr;
+	reg [WIDTH - 1:0] stack [0:(1 << DEPTH) - 1];
+
+	always @(posedge clk) begin
+		if (reset)
+			ptr <= 0;
+		else if (push)
+			ptr <= ptr + 1;
+		else if (pop)
+			ptr <= ptr - 1;
+	end
+
+	always @(posedge clk) begin
+		if (push || pop) begin
+			if(push)
+				stack[ptr] <= q;
+
+			q <= stack[ptr - 1];
+		end
+	end
+
+endmodule
