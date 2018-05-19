@@ -3,8 +3,10 @@ module Counter(
   output [12:0] out,
   input [10:0] salto,
   input enablestak,
-  input branch,
-  input flag
+  input push,
+  input flag,
+  input pop,
+  input branch
 );
 
   reg [12:0]out;
@@ -12,16 +14,43 @@ module Counter(
   reg [1:0] complemento;
   assign complemento = 2'b0;
 
+  //
+  parameter WIDTH = 13;
+	parameter DEPTH = 3;
+  reg [DEPTH - 1:0] ptr;
+	reg [WIDTH - 1:0] stack [0:(1 << DEPTH) - 1];
+  //
+
+  always @(posedge clk) begin
+		if (reset)
+			ptr <= 0;
+		else if (push)
+			ptr <= ptr + 1;
+		else if (pop)
+			ptr <= ptr - 1;
+	end
+
   	always @ (posedge clk)
 
       if(reset) begin
       	out <= 0;
-
       end else begin
-        if (branch == 1'b1)begin
-          out<= {{complemento[1:0]},{salto[10:0]}};
+        if (branch == 1'b1) begin
+          if (enablestak == 1'b1)begin
+            out<= {{complemento[1:0]},{salto[10:0]}};
+          end else if (enablestak == 1'b0)begin
+            if (push || pop) begin
+        			if(push)begin
+                stack[ptr] <= out;
+                out<= {{complemento[1:0]},{salto[10:0]}};
+              end
+        			out <= stack[ptr - 1];
+        		end
+          end
+
         end else if (flag == 1'b1 )begin
           out<= out +2;
+
         end else begin
             out <= out + 1;
         end
@@ -30,6 +59,7 @@ module Counter(
 
 initial begin
     out <= 1'b0;
+    ptr <= 1'b0;
 
 end
 
@@ -110,24 +140,22 @@ module ALU(
   input [7:0] A,B,
   output [7:0] out,
   input [1:0] codigo,
-  output zero
+  output zero,
+  output carry,
+  output Dcarry,
+  input [2:0] Numero_bit
 );
 
-  reg [7:0] out;
+  reg [7:0] out, out1, out2, ceros, unos;
   reg zero;
+  reg [8:0] suma9, resta9;
+  reg [8:0] A1, B1;
+  assign A1 = {{1'b0},{A[7:0]}};
+  assign B1 = {{1'b0},{B[7:0]}};
 
-  wire [7:0] result1;
-  wire [7:0] result2;
-  wire RLF;
-  wire RRF;
-
-  assign RLF = B[7];
-  assign result1 = B<<1;
-  assign result1[0]=RLF;
-  assign RRF = B[0];
-  assign result2 = B>>1;
-  assign result2[7] = RRF;
   assign zero = (out==0);
+  assign suma9 = A1 + B1;
+  assign carry = suma9[8];
 
   always @ (posedge clk)begin
 
@@ -146,8 +174,8 @@ module ALU(
         9:out <= -B;
         10:out <= B + 1;
         11:out <= B - 1;//salto DECFSZ
-        12:out <= result1;//B<<;
-        13:out <= result2;//B>>;
+        12:out <= {{B[0]},{B[7:1]}};//B>>;
+        13:out <= {{B[6:0]},{B[7]}};//B>>;
         14:out <= {{B[3:0]},{B[7:4]}}; //swap
         15:out <= B+1; // INCFSZ
 
@@ -166,8 +194,14 @@ module ALU(
 
       endcase
 
-    end else if (codigo == 2'b10)begin
-      out <= A;
+    end else if (codigo == 2'b01)begin
+      case (control)
+        4'b0100: out<= 0;
+        4'b0101: out<= 0;
+        4'b0110: out<= 0;
+        4'b0111: out<= 0;
+
+      endcase
     end
 
   end
@@ -210,6 +244,9 @@ module Decoder ( input [1:0] codigo,
   output sel,
   output [10:0] salto,
   output enablestak,
+  output push,
+  output [2:0] Numero_bit,
+  output pop,
   output branch
 );
 
@@ -218,7 +255,8 @@ module Decoder ( input [1:0] codigo,
   reg enablestak;
   reg enable_REG;
   reg enableRAM;
-  reg sel;
+  reg sel, push, pop;
+  reg [2:0] Numero_bit;
   reg branch;
 
   always @ (instruction) begin
@@ -235,12 +273,33 @@ module Decoder ( input [1:0] codigo,
       sel <= 1'b1;
       alu_Control <= instruction [11:8];
       enable_REG <=1'b0;
-      branch <= 1'b0;
+      if (alu_Control[3:2] == 2'b01) begin
+        branch <=1'b1;
+        enablestak <= 1'b0;
+        push <= 1'b0;
+        pop <=1'b1;
+      end else begin
+        branch <= 1'b0;
+      end
 
     end else if (codigo == `jump) begin
       enableRAM<=1'b0;
       salto <=instruction [10:0];
       enablestak <= instruction [11];
+      enable_REG<=1'b0;
+      push <= 1'b1;
+      pop <= 1'b0;
+      branch<=1'b1;
+    end else if (codigo == 2'b01) begin
+      enableRAM <=1'b1;
+      alu_Control<= instruction [13:10];
+      enable_REG<= 1'b1;
+      Numero_bit <= instruction [9:7];
+      sel <= 1'b0;
+    end else if (instruction == 14'b00000000001000) begin
+      enablestak <= 1'b1;
+      push <= 1'b0;
+      pop <=1'b1;
       enable_REG<=1'b0;
       branch <= 1'b1;
 
@@ -279,45 +338,3 @@ module MUX2 (input zero, input [1:0] codigo, input [3:0]alu_Control, output flag
   end
 
 endmodule // MUX2
-
-module Stack (
-	clk,
-	reset,
-	q,
-	d,
-	push,
-	pop,
-);
-
-	parameter WIDTH = 13;
-	parameter DEPTH = 8;
-
-	input                    clk;
-	input                    reset;
-	input      [WIDTH - 1:0] d;
-	output reg [WIDTH - 1:0] q;
-	input                    push;
-	input                    pop;
-
-	reg [DEPTH - 1:0] ptr;
-	reg [WIDTH - 1:0] stack [0:(1 << DEPTH) - 1];
-
-	always @(posedge clk) begin
-		if (reset)
-			ptr <= 0;
-		else if (push)
-			ptr <= ptr + 1;
-		else if (pop)
-			ptr <= ptr - 1;
-	end
-
-	always @(posedge clk) begin
-		if (push || pop) begin
-			if(push)
-				stack[ptr] <= q;
-
-			q <= stack[ptr - 1];
-		end
-	end
-
-endmodule

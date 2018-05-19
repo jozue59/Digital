@@ -6,6 +6,9 @@
 0A80   	// INCF F 0		F[0] = 4
 0083		// MOVWF		F[1] = W = 2
 0800		// MOVF			W = F[0] = 4
+0DFF
+0AFF
+0AFF
 0803		// MOVF			W = F[1] = 2
 0780		// ADDWF		F[0] = W + F[0] = 2 + 4 = 6
 0700		// ADDWF		W = W + F[0] = 2 + 6 = 8
