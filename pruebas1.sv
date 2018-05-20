@@ -147,15 +147,45 @@ module ALU(
 );
 
   reg [7:0] out, out1, out2, ceros, unos;
-  reg zero;
+  reg zero,prueba;
   reg [8:0] suma9, resta9;
   reg [8:0] A1, B1;
+  reg [7:0] set;
   assign A1 = {{1'b0},{A[7:0]}};
   assign B1 = {{1'b0},{B[7:0]}};
 
   assign zero = (out==0);
   assign suma9 = A1 + B1;
   assign carry = suma9[8];
+
+  always @ (A or B or Numero_bit) begin
+    if (control == 4'b0100)begin
+      case (Numero_bit)
+        0: set <= 8'b00000001;
+        1: set <= 8'b00000010;
+        2: set <= 8'b00000100;
+        3: set <= 8'b00001000;
+        4: set <= 8'b00010000;
+        5: set <= 8'b00100000;
+        6: set <= 8'b01000000;
+        7: set <= 8'b10000000;
+      endcase
+    end else if (control == 4'b0101)begin
+      case (Numero_bit)
+        0: set <= 8'b11111110;
+        1: set <= 8'b11111101;
+        2: set <= 8'b11111011;
+        3: set <= 8'b11110111;
+        4: set <= 8'b11101111;
+        5: set <= 8'b11011111;
+        6: set <= 8'b10111111;
+        7: set <= 8'b01111111;
+      endcase
+    end
+    ceros <= B | set;
+    unos <= B & set;
+
+  end
 
   always @ (posedge clk)begin
 
@@ -196,12 +226,14 @@ module ALU(
 
     end else if (codigo == 2'b01)begin
       case (control)
-        4'b0100: out<= 0;
-        4'b0101: out<= 0;
-        4'b0110: out<= 0;
-        4'b0111: out<= 0;
-
+        4'b0100: out<= ceros;
+        4'b0101: out<= unos;
+        4'b0110: prueba<= (B[Numero_bit] == 1'b1) ;
+        4'b0111: prueba<= (B[Numero_bit] == 1'b0) ;
       endcase
+      if (prueba == 1'b0 & (control == 4'b0110 | control == 4'b0111))begin
+        out <= 8'b00000000;
+      end
     end
 
   end
@@ -293,7 +325,11 @@ module Decoder ( input [1:0] codigo,
     end else if (codigo == 2'b01) begin
       enableRAM <=1'b1;
       alu_Control<= instruction [13:10];
-      enable_REG<= 1'b1;
+      if (alu_Control == 4'b0100 | alu_Control== 4'b0101)begin
+        enable_REG<= 1'b1;
+      end else begin
+        enable_REG<= 1'b0;
+      end
       Numero_bit <= instruction [9:7];
       sel <= 1'b0;
     end else if (instruction == 14'b00000000001000) begin
@@ -330,6 +366,10 @@ module MUX2 (input zero, input [1:0] codigo, input [3:0]alu_Control, output flag
   always @ (alu_Control)begin
     if (codigo == 2'b00 & zero == 1'b1)begin
       if (alu_Control == 4'b1111 | alu_Control == 4'b1011)begin
+        flag <= 1'b1;
+      end
+    end else if ( codigo == 2'b01 & zero == 1'b1)begin
+      if (alu_Control == 4'b0110 | alu_Control == 4'b0111)begin
         flag <= 1'b1;
       end
     end else begin
