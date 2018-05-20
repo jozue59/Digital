@@ -147,7 +147,7 @@ module ALU(
 );
 
   reg [7:0] out, out1, out2, ceros, unos;
-  reg zero,prueba;
+  reg zero, prueba, carry, Dcarry;
   reg [8:0] suma9, resta9;
   reg [8:0] A1, B1;
   reg [7:0] set;
@@ -156,7 +156,10 @@ module ALU(
 
   assign zero = (out==0);
   assign suma9 = A1 + B1;
-  assign carry = suma9[8];
+  //assign carry = suma9[8];
+  assign resta9 = B1 - A1;
+
+
 
   always @ (A or B or Numero_bit) begin
     if (control == 4'b0100)begin
@@ -208,8 +211,18 @@ module ALU(
         13:out <= {{B[6:0]},{B[7]}};//B>>;
         14:out <= {{B[3:0]},{B[7:4]}}; //swap
         15:out <= B+1; // INCFSZ
-
       endcase
+      if (control == 4'b0111)begin
+        carry <= suma9[8];
+        Dcarry <= suma9[8];
+      end else if (control== 4'b1101) begin
+        carry <= B[7];
+      end else if (control == 4'b1100) begin
+        carry <= B[0];
+      end else if (control == 4'b0010) begin
+        carry <= resta9[8];
+        Dcarry <= resta9[8];
+      end
 
     end else if (codigo == `literales)begin
 
@@ -221,8 +234,15 @@ module ALU(
         4'b01xx: out <= B; //RETLW
         4'b110x: out <= B - A;
         4'b1010: out <= A ^ B;
-
       endcase
+      if (control[3:1] == 3'b111) begin
+        carry <= suma9[8];
+        Dcarry <= suma9[8];
+      end else if (control[3:1] == 3'b110)begin
+        carry <= resta9[8];
+        Dcarry <= resta9[8];
+      end
+
 
     end else if (codigo == 2'b01)begin
       case (control)
